@@ -60,7 +60,7 @@ def bearing_angle(v1, v2):
 # Function to determine the rotation angle between two vectors
 def get_rotation(v1, v2):
     direction = v1.sub(v2)
-    rotation = math.acos(direction.normalize().dot(App.Vector(1, 0, 0)))
+    rotation = direction.getAngle(App.Vector(1, 0, 0))
     return 2 * math.pi - rotation if direction.y < 0 else rotation
 
 # Function to find the angle difference and turn direction
