@@ -152,6 +152,7 @@ spiral2 = makeSpiral(spiral2_length, arc_radius, direction, ST, rotation2)
 tangent2 = makeTangent(ST, end_station)
 
 shape = Part.makeCompound([tangent1, spiral1, curve, spiral2, tangent2])
+doc = FreeCAD.activeDocument()
 
 # Add the compound object to the document
 alignment = doc.addObject("Part::Feature", "Alignment")
