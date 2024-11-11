@@ -28,7 +28,7 @@ class ClothoidSpiral:
         self.num_points = num_points
         self.points = []
 
-    def calculate_points(self, translation_point=App.Vector(0, 0, 0), rotation=0):
+    def calculate_points(self, placement=App.Vector(0, 0, 0), rotation=0):
         # Calculate Fresnel parameters
         A = np.sqrt(self.length * self.radius * np.pi)
         t_values = np.linspace(0, self.length / A, self.num_points)
@@ -38,10 +38,11 @@ class ClothoidSpiral:
         x_coords = A * C
         y_coords = A * S * self.direction
 
+        # Create a rotation object for the given angle around the Z-axis
+        rotation = App.Rotation(App.Vector(0, 0, 1), Radian=rotation)
+
         # Apply translation and rotation to the points
-        self.points = [translation_point +
-                       App.Vector((x * math.cos(rotation) - y * math.sin(rotation)),
-                                  (x * math.sin(rotation) + y * math.cos(rotation)), 0)
+        self.points = [placement + rotation.multVec(App.Vector(x, y, 0))
                        for x, y in zip(x_coords, y_coords)]
 
     def toShape(self):
