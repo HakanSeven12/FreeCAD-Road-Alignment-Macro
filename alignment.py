@@ -28,7 +28,7 @@ class ClothoidSpiral:
         self.num_points = num_points
         self.points = []
 
-    def calculate_points(self, translation_point=App.Vector(0, 0, 0), rotation_angle=0):
+    def calculate_points(self, translation_point=App.Vector(0, 0, 0), rotation=0):
         # Calculate Fresnel parameters
         A = np.sqrt(self.length * self.radius * np.pi)
         t_values = np.linspace(0, self.length / A, self.num_points)
@@ -38,15 +38,10 @@ class ClothoidSpiral:
         x_coords = A * C
         y_coords = A * S * self.direction
 
-        # Compute the rotation angle in radians
-        angle_radians = np.radians(rotation_angle)
-        cos_angle = np.cos(angle_radians)
-        sin_angle = np.sin(angle_radians)
-        
         # Apply translation and rotation to the points
         self.points = [translation_point +
-                       App.Vector((x * cos_angle - y * sin_angle),
-                                  (x * sin_angle + y * cos_angle), 0)
+                       App.Vector((x * math.cos(rotation) - y * math.sin(rotation)),
+                                  (x * math.sin(rotation) + y * math.cos(rotation)), 0)
                        for x, y in zip(x_coords, y_coords)]
 
     def toShape(self):
@@ -58,34 +53,33 @@ class ClothoidSpiral:
 
 # Function to calculate the angle between two vectors
 def bearing_angle(v1, v2):
-    bearing = math.degrees(math.atan2(v2.x - v1.x, v2.y - v1.y))
-    return bearing + 360 if bearing < 0 else bearing
+    bearing = math.atan2(v2.x - v1.x, v2.y - v1.y)
+    return bearing + 2 * math.pi if bearing < 0 else bearing
 
 # Function to determine the rotation angle between two vectors
 def get_rotation(v1, v2):
     direction = v1.sub(v2)
-    rotation = math.degrees(math.acos(direction.normalize().dot(App.Vector(1, 0, 0))))
-    return 360 - rotation if direction.y < 0 else rotation
+    rotation = math.acos(direction.normalize().dot(App.Vector(1, 0, 0)))
+    return 2 * math.pi - rotation if direction.y < 0 else rotation
 
 # Function to find the angle difference and turn direction
 def find_turn_direction(angle1, angle2):
-    angle_diff = angle2 - angle1
-    direction = 1 if angle_diff > 0 else -1
-    return abs(angle_diff), direction
+    deflection = angle2 - angle1
+    direction = 1 if deflection > 0 else -1
+    return abs(deflection), direction
 
 # Calculate initial and final angles
 angle1 = bearing_angle(start_station, pi_station)
 angle2 = bearing_angle(pi_station, end_station)
 
 deflection, direction = find_turn_direction(angle1, angle2)
-
 # Function to calculate spiral parameters
 def calculate_spiral_params(length, radius):
     p = (length ** 2) / (24 * radius)
     X = length - (length ** 3 / (40 * radius ** 2) - length ** 5 / (3456 * radius ** 4))
-    Y = X * math.tan((length * 90 / math.pi / radius) * (math.pi / 180) / 3)
-    k = X - radius * math.sin(math.radians(length * 90 / (math.pi * radius)))
-    Is = length * 90 / math.pi / radius
+    Y = X * math.tan((length * math.pi / 2) / (math.pi * radius) / 3)
+    k = X - radius * math.sin((length * math.pi / 2) / (math.pi * radius)) 
+    Is = (length * math.pi / 2) / (math.pi * radius) 
     SPchord = math.sqrt(X ** 2 + Y ** 2)
     return p, X, Y, k, Is, SPchord
 
@@ -94,29 +88,31 @@ p1, X1, Y1, k1, Is1, SP1chord = calculate_spiral_params(spiral1_length, arc_radi
 p2, X2, Y2, k2, Is2, SP2chord = calculate_spiral_params(spiral2_length, arc_radius)
 
 # Calculate transition points
-T1 = (arc_radius + p2) / math.sin(math.radians(deflection)) - \
-     (arc_radius + p1) / math.tan(math.radians(deflection)) + k1
+T1 = (arc_radius + p2) / math.sin(deflection) - \
+     (arc_radius + p1) / math.tan(deflection) + k1
 
-TS = pi_station + App.Vector(T1 * math.sin(math.radians(angle1 + 180)),
-                             T1 * math.cos(math.radians(angle1 + 180)), 0)
+TS = pi_station + App.Vector(T1 * math.sin(angle1 + math.pi),
+                             T1 * math.cos(angle1 + math.pi), 0)
 
-SC = TS + App.Vector(SP1chord * math.sin(math.radians(angle1 + (Is1 / 3) * direction)),
-                     SP1chord * math.cos(math.radians(angle1 + (Is1 / 3) * direction)), 0)
+SC = TS + App.Vector(SP1chord * math.sin(angle1 + (Is1 / 3) * direction),
+                     SP1chord * math.cos(angle1 + (Is1 / 3) * direction), 0)
 
-T2 = (arc_radius + p1) / math.sin(math.radians(deflection)) - \
-     (arc_radius + p2) / math.tan(math.radians(deflection)) + k2
+T2 = (arc_radius + p1) / math.sin(deflection) - \
+     (arc_radius + p2) / math.tan(deflection) + k2
 
-ST = pi_station + App.Vector(T2 * math.sin(math.radians(angle1 + deflection * direction)),
-                             T2 * math.cos(math.radians(angle1 + deflection * direction)), 0)
+ST = pi_station + App.Vector(T2 * math.sin(angle1 + deflection * direction),
+                             T2 * math.cos(angle1 + deflection * direction), 0)
 
-CS = ST - App.Vector(math.sin(math.radians(angle1 + (deflection * direction) - ((30 / math.pi / arc_radius / 
-                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction))) * spiral2_length,
-                     math.cos(math.radians(angle1 + (deflection * direction) - ((30 / math.pi / arc_radius / 
-                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction))) * spiral2_length, 0)
+CS = ST - App.Vector(math.sin(angle1 + (deflection * direction) - ((30 / math.pi / arc_radius / 
+                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length,
+                     math.cos(angle1 + (deflection * direction) - ((30 / math.pi / arc_radius / 
+                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length, 0)
 
+CS = ST - App.Vector(math.sin(angle1 + (deflection * direction) - (((math.pi / 6) / math.pi / arc_radius / 
+                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length,
+                     math.cos(angle1 + (deflection * direction) - (((math.pi / 6) / math.pi / arc_radius / 
+                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length, 0)
 
-rotation1 = get_rotation(pi_station, start_station)
-rotation2 = get_rotation(pi_station, end_station)
 
 # Function to create an arc
 def makeCurve(SC, CS, radius, direction):
@@ -145,6 +141,9 @@ def makeTangent(start, end):
     tangent = Part.LineSegment(start, end)
     return tangent.toShape()
 
+rotation1 = get_rotation(pi_station, start_station)
+rotation2 = get_rotation(pi_station, end_station)
+
 tangent1 = makeTangent(start_station, TS)
 spiral1 = makeSpiral(spiral1_length, arc_radius, -direction, TS, rotation1)
 curve = makeCurve(SC, CS, arc_radius, -direction)
@@ -153,7 +152,6 @@ tangent2 = makeTangent(ST, end_station)
 
 shape = Part.makeCompound([tangent1, spiral1, curve, spiral2, tangent2])
 doc = FreeCAD.activeDocument()
-
 # Add the compound object to the document
 alignment = doc.addObject("Part::Feature", "Alignment")
 alignment.Shape = shape
