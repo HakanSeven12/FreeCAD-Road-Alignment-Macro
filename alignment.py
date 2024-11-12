@@ -83,22 +83,19 @@ def makeSpiral(length, radius, direction, placement, rotation):
 # Function to create an arc
 def makeCurve(SC, CS, radius, direction):
     # Calculate the midpoint and the distance between the points
-    midpoint = (SC + CS) / 2
-    dist_between_points = SC.distanceToPoint(CS)
+    chord_middle = (SC + CS) / 2
+    chord_length = SC.distanceToPoint(CS)
 
     # Calculate the distance from the midpoint to the center
-    dist_to_center = math.sqrt(radius**2 - (dist_between_points / 2)**2)
+    dist_to_center = math.sqrt(radius**2 - (chord_length / 2)**2)
 
     # Calculate the vector perpendicular to the line segment between the points
-    dx = CS.x - SC.x
-    dy = CS.y - SC.y
-    perp_vector = App.Vector(-dy, dx, 0).normalize() * dist_to_center
+    perp_vector = App.Vector(0,0,1).cross(CS.sub(SC)).normalize().multiply(dist_to_center)
 
     # Select the correct center based on direction
-    center = midpoint + perp_vector if direction > 0 else midpoint - perp_vector
-    chord_mid = (SC + CS) / 2
-    thirdPt = chord_mid.sub(center).normalize().multiply(radius).add(center)
-    curve = Part.Arc(SC, thirdPt, CS)
+    center = chord_middle.add(perp_vector) if direction > 0 else midpoint.sub(perp_vector)
+    midle = chord_middle.sub(center).normalize().multiply(radius).add(center)
+    curve = Part.Arc(SC, midle, CS)
 
     return curve.toShape()
 
