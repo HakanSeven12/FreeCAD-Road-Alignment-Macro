@@ -74,7 +74,7 @@ def makeTangent(start, end):
 def makeSpiral(length, radius, direction, placement, rotation):
     spiral = ClothoidSpiral(length, radius, direction)
     spiral.calculate_points(placement, rotation)
-    return spiral.toShape()
+    return spiral.toShape(), spiral.points[-1]
 
 # Function to create an arc
 def makeCurve(SC, CS, radius, direction):
@@ -126,32 +126,16 @@ p2, X2, Y2, k2, Is2, SP2chord = calculate_spiral_params(spiral2_length, arc_radi
 T1 = (arc_radius + p2) / math.sin(deflection) - \
      (arc_radius + p1) / math.tan(deflection) + k1
 
-TS = pi_station + App.Vector(T1 * math.sin(angle1 + math.pi),
-                             T1 * math.cos(angle1 + math.pi), 0)
-
-SC = TS + App.Vector(SP1chord * math.sin(angle1 + (Is1 / 3) * direction),
-                     SP1chord * math.cos(angle1 + (Is1 / 3) * direction), 0)
-
 T2 = (arc_radius + p1) / math.sin(deflection) - \
      (arc_radius + p2) / math.tan(deflection) + k2
 
-ST = pi_station + App.Vector(T2 * math.sin(angle1 + deflection * direction),
-                             T2 * math.cos(angle1 + deflection * direction), 0)
-
-CS = ST - App.Vector(math.sin(angle1 + (deflection * direction) - ((30 / math.pi / arc_radius / 
-                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length,
-                     math.cos(angle1 + (deflection * direction) - ((30 / math.pi / arc_radius / 
-                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length, 0)
-
-CS = ST - App.Vector(math.sin(angle1 + (deflection * direction) - (((math.pi / 6) / math.pi / arc_radius / 
-                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length,
-                     math.cos(angle1 + (deflection * direction) - (((math.pi / 6) / math.pi / arc_radius / 
-                             (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length, 0)
+TS = start_station.sub(pi_station).normalize().multiply(T1).add(pi_station)
+ST = end_station.sub(pi_station).normalize().multiply(T2).add(pi_station)
 
 tangent1 = makeTangent(start_station, TS)
-spiral1 = makeSpiral(spiral1_length, arc_radius, -direction, TS, rotation1)
+spiral1, SC = makeSpiral(spiral1_length, arc_radius, -direction, TS, rotation1)
+spiral2, CS = makeSpiral(spiral2_length, arc_radius, direction, ST, rotation2)
 curve = makeCurve(SC, CS, arc_radius, -direction)
-spiral2 = makeSpiral(spiral2_length, arc_radius, direction, ST, rotation2)
 tangent2 = makeTangent(ST, end_station)
 
 shape = Part.makeCompound([tangent1, spiral1, curve, spiral2, tangent2])
