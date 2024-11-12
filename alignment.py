@@ -50,7 +50,7 @@ def bearing_angle(v1, v2, axis="x"):
     return 2 * math.pi - angle if direction.y < 0 and direction.x < 0 else angle
 
 # Function to find the angle difference and turn direction
-def find_turn_direction(STin, STpi,STout):
+def turn_direction(STin, STpi,STout):
     # Calculate initial and final angles
     angle_in = bearing_angle(STpi, STin, "y")
     angle_out = bearing_angle(STout, STpi, "y")
@@ -60,7 +60,7 @@ def find_turn_direction(STin, STpi,STout):
     return abs(deflection), direction
 
 # Function to calculate spiral parameters
-def calculate_spiral_params(length, radius):
+def spiral_parameters(length, radius):
     p = (length ** 2) / (24 * radius)
     X = length - (length ** 3 / (40 * radius ** 2) - length ** 5 / (3456 * radius ** 4))
     Y = X * math.tan((length * math.pi / 2) / (math.pi * radius) / 3)
@@ -94,48 +94,48 @@ def makeCurve(SC, CS, radius, direction):
 
     # Select the correct center based on direction
     center = chord_middle.add(perp_vector) if direction > 0 else midpoint.sub(perp_vector)
-    midle = chord_middle.sub(center).normalize().multiply(radius).add(center)
-    curve = Part.Arc(SC, midle, CS)
+    middle = chord_middle.sub(center).normalize().multiply(radius).add(center)
+    curve = Part.Arc(SC, middle, CS)
 
     return curve.toShape()
 
 
 
 # Data
-arc_radius = 3000000
-spiral1_length = 2000000
-spiral2_length = 2000000
+radius = 3000000
+length_in = 2000000
+length_out = 2000000
 
-start_station = App.Vector(451298775, 1433498332, 0)
-pi_station = App.Vector(450028351, 1428116943, 0)
-end_station = App.Vector(459061372, 1422718608, 0)
+previous = App.Vector(451298775, 1433498332, 0)
+current = App.Vector(450028351, 1428116943, 0)
+next = App.Vector(459061372, 1422718608, 0)
 
-deflection, direction = find_turn_direction(start_station, pi_station,end_station)
+deflection, direction = turn_direction(previous, current, next)
 
-rotation1 = bearing_angle(pi_station, start_station)
-rotation2 = bearing_angle(pi_station, end_station)
+rotation_in = bearing_angle(current, previous)
+rotation_out = bearing_angle(current, next)
 
 # Calculate spiral parameters
-p1, X1, Y1, k1, Is1, SP1chord = calculate_spiral_params(spiral1_length, arc_radius)
-p2, X2, Y2, k2, Is2, SP2chord = calculate_spiral_params(spiral2_length, arc_radius)
+p1, X1, Y1, k1, Is1, SP1chord = spiral_parameters(length_in, radius)
+p2, X2, Y2, k2, Is2, SP2chord = spiral_parameters(length_out, radius)
 
 # Calculate transition points
-T1 = (arc_radius + p2) / math.sin(deflection) - \
-     (arc_radius + p1) / math.tan(deflection) + k1
+T1 = (radius + p2) / math.sin(deflection) - \
+     (radius + p1) / math.tan(deflection) + k1
 
-T2 = (arc_radius + p1) / math.sin(deflection) - \
-     (arc_radius + p2) / math.tan(deflection) + k2
+T2 = (radius + p1) / math.sin(deflection) - \
+     (radius + p2) / math.tan(deflection) + k2
 
-TS = start_station.sub(pi_station).normalize().multiply(T1).add(pi_station)
-ST = end_station.sub(pi_station).normalize().multiply(T2).add(pi_station)
+TS = previous.sub(current).normalize().multiply(T1).add(current)
+ST = next.sub(current).normalize().multiply(T2).add(current)
 
-tangent1 = makeTangent(start_station, TS)
-spiral1, SC = makeSpiral(spiral1_length, arc_radius, -direction, TS, rotation1)
-spiral2, CS = makeSpiral(spiral2_length, arc_radius, direction, ST, rotation2)
-curve = makeCurve(SC, CS, arc_radius, -direction)
-tangent2 = makeTangent(ST, end_station)
+tangent_in = makeTangent(previous, TS)
+spiral_in, SC = makeSpiral(length_in, radius, -direction, TS, rotation_in)
+spiral_out, CS = makeSpiral(length_out, radius, direction, ST, rotation_out)
+curve = makeCurve(SC, CS, radius, -direction)
+tangent_out = makeTangent(ST, next)
 
-shape = Part.makeCompound([tangent1, spiral1, curve, spiral2, tangent2])
+shape = Part.makeCompound([tangent_in, spiral_in, curve, spiral_out, tangent_out])
 doc = FreeCAD.activeDocument()
 # Add the compound object to the document
 alignment = doc.addObject("Part::Feature", "Alignment")
