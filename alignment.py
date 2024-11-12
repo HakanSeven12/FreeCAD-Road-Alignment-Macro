@@ -1,23 +1,9 @@
 import FreeCAD as App
+import FreeCADGui as Gui
 import Part
 import math
 import numpy as np
 from scipy.special import fresnel
-
-# Data
-arc_radius = 3000000
-spiral1_length = 2000000
-spiral2_length = 2000000
-
-start_station = App.Vector(451298775, 1433498332, 0)
-pi_station = App.Vector(450028351, 1428116943, 0)
-end_station = App.Vector(459061372, 1422718608, 0)
-
-# Function to create a Clothoid spiral
-def makeSpiral(length, radius, direction, placement, rotation):
-    spiral = ClothoidSpiral(length, radius, direction)
-    spiral.calculate_points(placement, rotation)
-    return spiral.toShape()
 
 # Clothoid Spiral class
 class ClothoidSpiral:
@@ -53,15 +39,15 @@ class ClothoidSpiral:
         return bspline.toShape()
 
 # Function to calculate the angle between two vectors
-def bearing_angle(v1, v2):
-    bearing = math.atan2(v2.x - v1.x, v2.y - v1.y)
-    return bearing + 2 * math.pi if bearing < 0 else bearing
+def bearing_angle(v1, v2, axis="x"):
+    if axis == "x":
+	    start = App.Vector(1, 0, 0)
+    elif axis == "y":
+        start = App.Vector(0, 1, 0)
 
-# Function to determine the rotation angle between two vectors
-def get_rotation(v1, v2):
     direction = v1.sub(v2)
-    rotation = direction.getAngle(App.Vector(1, 0, 0))
-    return 2 * math.pi - rotation if direction.y < 0 else rotation
+    angle = direction.getAngle(start)
+    return 2 * math.pi - angle if direction.y < 0 and direction.x < 0 else angle
 
 # Function to find the angle difference and turn direction
 def find_turn_direction(angle1, angle2):
@@ -69,11 +55,6 @@ def find_turn_direction(angle1, angle2):
     direction = 1 if deflection > 0 else -1
     return abs(deflection), direction
 
-# Calculate initial and final angles
-angle1 = bearing_angle(start_station, pi_station)
-angle2 = bearing_angle(pi_station, end_station)
-
-deflection, direction = find_turn_direction(angle1, angle2)
 # Function to calculate spiral parameters
 def calculate_spiral_params(length, radius):
     p = (length ** 2) / (24 * radius)
@@ -83,6 +64,59 @@ def calculate_spiral_params(length, radius):
     Is = (length * math.pi / 2) / (math.pi * radius) 
     SPchord = math.sqrt(X ** 2 + Y ** 2)
     return p, X, Y, k, Is, SPchord
+
+# Function to create a tangent line
+def makeTangent(start, end):
+    tangent = Part.LineSegment(start, end)
+    return tangent.toShape()
+
+# Function to create a Clothoid spiral
+def makeSpiral(length, radius, direction, placement, rotation):
+    spiral = ClothoidSpiral(length, radius, direction)
+    spiral.calculate_points(placement, rotation)
+    return spiral.toShape()
+
+# Function to create an arc
+def makeCurve(SC, CS, radius, direction):
+    # Calculate the midpoint and the distance between the points
+    midpoint = (SC + CS) / 2
+    dist_between_points = SC.distanceToPoint(CS)
+
+    # Calculate the distance from the midpoint to the center
+    dist_to_center = math.sqrt(radius**2 - (dist_between_points / 2)**2)
+
+    # Calculate the vector perpendicular to the line segment between the points
+    dx = CS.x - SC.x
+    dy = CS.y - SC.y
+    perp_vector = App.Vector(-dy, dx, 0).normalize() * dist_to_center
+
+    # Select the correct center based on direction
+    center = midpoint + perp_vector if direction > 0 else midpoint - perp_vector
+    chord_mid = (SC + CS) / 2
+    thirdPt = chord_mid.sub(center).normalize().multiply(radius).add(center)
+    curve = Part.Arc(SC, thirdPt, CS)
+
+    return curve.toShape()
+
+
+
+# Data
+arc_radius = 3000000
+spiral1_length = 2000000
+spiral2_length = 2000000
+
+start_station = App.Vector(451298775, 1433498332, 0)
+pi_station = App.Vector(450028351, 1428116943, 0)
+end_station = App.Vector(459061372, 1422718608, 0)
+
+# Calculate initial and final angles
+angle1 = bearing_angle(pi_station, start_station, "y")
+angle2 = bearing_angle(end_station, pi_station, "y")
+
+deflection, direction = find_turn_direction(angle1, angle2)
+
+rotation1 = bearing_angle(pi_station, start_station)
+rotation2 = bearing_angle(pi_station, end_station)
 
 # Calculate spiral parameters
 p1, X1, Y1, k1, Is1, SP1chord = calculate_spiral_params(spiral1_length, arc_radius)
@@ -113,37 +147,6 @@ CS = ST - App.Vector(math.sin(angle1 + (deflection * direction) - (((math.pi / 6
                              (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length,
                      math.cos(angle1 + (deflection * direction) - (((math.pi / 6) / math.pi / arc_radius / 
                              (spiral2_length + 0.0001) * spiral2_length ** 2) * direction)) * spiral2_length, 0)
-
-
-# Function to create an arc
-def makeCurve(SC, CS, radius, direction):
-    # Calculate the midpoint and the distance between the points
-    midpoint = (SC + CS) / 2
-    dist_between_points = SC.distanceToPoint(CS)
-
-    # Calculate the distance from the midpoint to the center
-    dist_to_center = math.sqrt(radius**2 - (dist_between_points / 2)**2)
-
-    # Calculate the vector perpendicular to the line segment between the points
-    dx = CS.x - SC.x
-    dy = CS.y - SC.y
-    perp_vector = App.Vector(-dy, dx, 0).normalize() * dist_to_center
-
-    # Select the correct center based on direction
-    center = midpoint + perp_vector if direction > 0 else midpoint - perp_vector
-    chord_mid = (SC + CS) / 2
-    thirdPt = chord_mid.sub(center).normalize().multiply(radius).add(center)
-    curve = Part.Arc(SC, thirdPt, CS)
-
-    return curve.toShape()
-
-# Function to create a tangent line
-def makeTangent(start, end):
-    tangent = Part.LineSegment(start, end)
-    return tangent.toShape()
-
-rotation1 = get_rotation(pi_station, start_station)
-rotation2 = get_rotation(pi_station, end_station)
 
 tangent1 = makeTangent(start_station, TS)
 spiral1 = makeSpiral(spiral1_length, arc_radius, -direction, TS, rotation1)
