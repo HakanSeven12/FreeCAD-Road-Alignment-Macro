@@ -50,8 +50,12 @@ def bearing_angle(v1, v2, axis="x"):
     return 2 * math.pi - angle if direction.y < 0 and direction.x < 0 else angle
 
 # Function to find the angle difference and turn direction
-def find_turn_direction(angle1, angle2):
-    deflection = angle2 - angle1
+def find_turn_direction(STin, STpi,STout):
+    # Calculate initial and final angles
+    angle_in = bearing_angle(STpi, STin, "y")
+    angle_out = bearing_angle(STout, STpi, "y")
+
+    deflection = angle_out - angle_in
     direction = 1 if deflection > 0 else -1
     return abs(deflection), direction
 
@@ -109,11 +113,7 @@ start_station = App.Vector(451298775, 1433498332, 0)
 pi_station = App.Vector(450028351, 1428116943, 0)
 end_station = App.Vector(459061372, 1422718608, 0)
 
-# Calculate initial and final angles
-angle1 = bearing_angle(pi_station, start_station, "y")
-angle2 = bearing_angle(end_station, pi_station, "y")
-
-deflection, direction = find_turn_direction(angle1, angle2)
+deflection, direction = find_turn_direction(start_station, pi_station,end_station)
 
 rotation1 = bearing_angle(pi_station, start_station)
 rotation2 = bearing_angle(pi_station, end_station)
