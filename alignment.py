@@ -16,7 +16,7 @@ class ClothoidSpiral:
 
     def calculate_points(self, placement=App.Vector(0, 0, 0), rotation=0):
         # Calculate Fresnel parameters
-        A = np.sqrt(self.length * self.radius * np.pi)
+        A = math.sqrt(self.length * self.radius * math.pi)
         t_values = np.linspace(0, self.length / A, self.num_points)
         S, C = fresnel(t_values)
         
