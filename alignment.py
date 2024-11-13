@@ -14,18 +14,19 @@ class ClothoidSpiral:
         self.num_points = num_points
         self.points = []
 
-    def calculate_points(self, placement=App.Vector(0, 0, 0), rotation=0):
+    def calculate_points(self, placement=App.Vector(0, 0, 0), angle=0):
         # Calculate Fresnel parameters
         A = math.sqrt(self.length * self.radius * math.pi)
-        t_values = np.linspace(0, self.length / A, self.num_points)
+        t_values = np.sqrt(np.linspace(0, 1, self.num_points)) * (self.length / A)
+
         S, C = fresnel(t_values)
-        
+
         # Calculate coordinates with the direction and scaling factor
         x_coords = A * C
         y_coords = A * S * self.direction
 
         # Create a rotation object for the given angle around the Z-axis
-        rotation = App.Rotation(App.Vector(0, 0, 1), Radian=rotation)
+        rotation = App.Rotation(App.Vector(0, 0, 1), Radian=angle)
 
         # Apply translation and rotation to the points
         self.points = [placement + rotation.multVec(App.Vector(x, y, 0))
@@ -38,8 +39,12 @@ class ClothoidSpiral:
         bspline.interpolate(self.points)
         return bspline.toShape()
 
-# Function to calculate the angle between two vectors
 def bearing_angle(v1, v2, axis="x"):
+    # Function to calculate the bearing angle between two vectors
+    # v1: Start vector
+    # v2: End vector
+    # axis: Rotation axis ("x" or "y")
+
     if axis == "x":
 	    start = App.Vector(1, 0, 0)
     elif axis == "y":
@@ -75,9 +80,9 @@ def makeTangent(start, end):
     return tangent.toShape()
 
 # Function to create a Clothoid spiral
-def makeSpiral(length, radius, direction, placement, rotation):
+def makeSpiral(length, radius, direction, placement, angle):
     spiral = ClothoidSpiral(length, radius, direction)
-    spiral.calculate_points(placement, rotation)
+    spiral.calculate_points(placement, angle)
     return spiral.toShape(), spiral.points[-1]
 
 # Function to create an arc
@@ -87,13 +92,13 @@ def makeCurve(SC, CS, radius, direction):
     chord_length = SC.distanceToPoint(CS)
 
     # Calculate the distance from the midpoint to the center
-    dist_to_center = math.sqrt(radius**2 - (chord_length / 2)**2)
+    dist_to_center = math.sqrt(abs(radius**2 - (chord_length / 2)**2))
 
     # Calculate the vector perpendicular to the line segment between the points
     perp_vector = App.Vector(0,0,1).cross(CS.sub(SC)).normalize().multiply(dist_to_center)
 
     # Select the correct center based on direction
-    center = chord_middle.add(perp_vector) if direction > 0 else midpoint.sub(perp_vector)
+    center = chord_middle.add(perp_vector) if direction > 0 else chord_middle.sub(perp_vector)
     middle = chord_middle.sub(center).normalize().multiply(radius).add(center)
     curve = Part.Arc(SC, middle, CS)
 
@@ -112,8 +117,8 @@ next = App.Vector(459061372, 1422718608, 0)
 
 deflection, direction = turn_direction(previous, current, next)
 
-rotation_in = bearing_angle(current, previous)
-rotation_out = bearing_angle(current, next)
+angle_in = bearing_angle(current, previous)
+angle_out = bearing_angle(current, next)
 
 # Calculate spiral parameters
 p1, X1, Y1, k1, Is1, SP1chord = spiral_parameters(length_in, radius)
@@ -130,16 +135,21 @@ TS = previous.sub(current).normalize().multiply(T1).add(current)
 ST = next.sub(current).normalize().multiply(T2).add(current)
 
 tangent_in = makeTangent(previous, TS)
-spiral_in, SC = makeSpiral(length_in, radius, -direction, TS, rotation_in)
-spiral_out, CS = makeSpiral(length_out, radius, direction, ST, rotation_out)
+spiral_in, SC = makeSpiral(length_in, radius, -direction, TS, angle_in)
+spiral_out, CS = makeSpiral(length_out, radius, direction, ST, angle_out)
 curve = makeCurve(SC, CS, radius, -direction)
 tangent_out = makeTangent(ST, next)
 
 shape = Part.makeCompound([tangent_in, spiral_in, curve, spiral_out, tangent_out])
-doc = FreeCAD.activeDocument()
-# Add the compound object to the document
-alignment = doc.addObject("Part::Feature", "Alignment")
-alignment.Shape = shape
 
-# Update the document
-doc.recompute()
+if not Gui.activeDocument():
+    App.Console.PrintWarning("FreeCAD GUI is not active.\n")
+
+else:
+    doc = FreeCAD.activeDocument()
+    # Add the compound object to the document
+    alignment = doc.addObject("Part::Feature", "Alignment")
+    alignment.Shape = shape
+
+    # Update the document
+    doc.recompute()
